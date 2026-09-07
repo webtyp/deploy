@@ -5,7 +5,7 @@ go 1.25.2
 require (
 	gopkg.in/yaml.v3 v3.0.1
 	webtyp.com/context v0.0.23
-	webtyp.com/goflare v0.5.30
+	webtyp.com/goflare v0.5.31
 	webtyp.com/keyring v0.2.4
 	webtyp.com/update v0.0.3
 	webtyp.com/wizard v0.0.29
