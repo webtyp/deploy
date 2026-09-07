@@ -21,7 +21,7 @@ require (
 	golang.org/x/term v0.45.0 // indirect
 	webtyp.com/await v0.1.1 // indirect
 	webtyp.com/base64 v0.0.6 // indirect
-	webtyp.com/cloudflare v0.0.17 // indirect
+	webtyp.com/cloudflare v0.0.18 // indirect
 	webtyp.com/color v0.1.2 // indirect
 	webtyp.com/command v0.0.3 // indirect
 	webtyp.com/css v0.4.21 // indirect
