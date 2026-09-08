@@ -43,7 +43,7 @@ require (
 	webtyp.com/router v0.1.36 // indirect
 	webtyp.com/sitec v0.2.9 // indirect
 	webtyp.com/storage v0.0.7 // indirect
-	webtyp.com/svg v0.3.7 // indirect
+	webtyp.com/svg v0.3.9 // indirect
 	webtyp.com/tinygo v1.0.1 // indirect
 	webtyp.com/webauthn v0.1.3 // indirect
 )
