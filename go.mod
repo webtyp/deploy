@@ -27,7 +27,7 @@ require (
 	webtyp.com/css v0.4.22 // indirect
 	webtyp.com/dbus v0.1.1 // indirect
 	webtyp.com/ddl v0.0.15 // indirect
-	webtyp.com/dom v0.13.12 // indirect
+	webtyp.com/dom v0.13.13 // indirect
 	webtyp.com/fetch v0.1.28 // indirect
 	webtyp.com/fmt v1.0.0 // indirect
 	webtyp.com/font v0.0.5 // indirect
