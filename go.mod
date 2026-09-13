@@ -34,7 +34,7 @@ require (
 	webtyp.com/ghaction v0.1.2 // indirect
 	webtyp.com/git v0.0.8 // indirect
 	webtyp.com/gobuild v0.0.28 // indirect
-	webtyp.com/html v0.0.21 // indirect
+	webtyp.com/html v0.0.24 // indirect
 	webtyp.com/image v0.1.3 // indirect
 	webtyp.com/js v0.0.10 // indirect
 	webtyp.com/json v0.5.25 // indirect
