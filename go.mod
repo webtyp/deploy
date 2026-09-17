@@ -42,7 +42,7 @@ require (
 	webtyp.com/modfind v0.0.9 // indirect
 	webtyp.com/router v0.1.40 // indirect
 	webtyp.com/sitec v0.2.25 // indirect
-	webtyp.com/storage v0.0.10 // indirect
+	webtyp.com/storage v0.1.0 // indirect
 	webtyp.com/svg v0.3.14 // indirect
 	webtyp.com/tinygo v1.0.1 // indirect
 	webtyp.com/webauthn v0.1.3 // indirect
