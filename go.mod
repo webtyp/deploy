@@ -5,7 +5,7 @@ go 1.25.2
 require (
 	gopkg.in/yaml.v3 v3.0.1
 	webtyp.com/context v0.0.23
-	webtyp.com/goflare v0.5.32
+	webtyp.com/goflare v0.5.33
 	webtyp.com/keyring v0.2.4
 	webtyp.com/update v0.0.3
 	webtyp.com/wizard v0.0.29
@@ -37,11 +37,11 @@ require (
 	webtyp.com/html v0.0.24 // indirect
 	webtyp.com/image v0.1.3 // indirect
 	webtyp.com/js v0.0.10 // indirect
-	webtyp.com/json v0.5.25 // indirect
+	webtyp.com/json v0.5.26 // indirect
 	webtyp.com/model v0.2.0 // indirect
 	webtyp.com/modfind v0.0.9 // indirect
 	webtyp.com/router v0.1.41 // indirect
-	webtyp.com/sitec v0.2.25 // indirect
+	webtyp.com/sitec v0.2.27 // indirect
 	webtyp.com/storage v0.1.0 // indirect
 	webtyp.com/svg v0.3.14 // indirect
 	webtyp.com/tinygo v1.0.1 // indirect
