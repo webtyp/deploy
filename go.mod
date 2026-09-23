@@ -40,7 +40,7 @@ require (
 	webtyp.com/json v0.5.26 // indirect
 	webtyp.com/model v0.2.0 // indirect
 	webtyp.com/modfind v0.0.9 // indirect
-	webtyp.com/router v0.1.41 // indirect
+	webtyp.com/router v0.1.42 // indirect
 	webtyp.com/sitec v0.2.27 // indirect
 	webtyp.com/storage v0.1.0 // indirect
 	webtyp.com/svg v0.3.14 // indirect
