@@ -28,7 +28,6 @@ require (
 	webtyp.com/dbus v0.1.1 // indirect
 	webtyp.com/ddl v0.0.15 // indirect
 	webtyp.com/dom v0.13.17 // indirect
-	webtyp.com/fetch v0.1.28 // indirect
 	webtyp.com/fmt v1.0.0 // indirect
 	webtyp.com/font v0.0.5 // indirect
 	webtyp.com/ghaction v0.1.2 // indirect
@@ -36,12 +35,12 @@ require (
 	webtyp.com/gobuild v0.0.28 // indirect
 	webtyp.com/html v0.0.24 // indirect
 	webtyp.com/image v0.1.11 // indirect
-	webtyp.com/js v0.0.11 // indirect
+	webtyp.com/js v0.1.0 // indirect
 	webtyp.com/json v0.5.27 // indirect
 	webtyp.com/model v0.2.0 // indirect
 	webtyp.com/modfind v0.0.9 // indirect
 	webtyp.com/router v0.3.0 // indirect
-	webtyp.com/sitec v0.2.32 // indirect
+	webtyp.com/sitec v0.2.36 // indirect
 	webtyp.com/storage v0.1.0 // indirect
 	webtyp.com/svg v0.3.14 // indirect
 	webtyp.com/tinygo v1.0.1 // indirect
