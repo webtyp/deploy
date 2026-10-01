@@ -35,7 +35,7 @@ require (
 	webtyp.com/gobuild v0.0.28 // indirect
 	webtyp.com/html v0.0.24 // indirect
 	webtyp.com/image v0.1.11 // indirect
-	webtyp.com/js v0.1.0 // indirect
+	webtyp.com/js v0.1.1 // indirect
 	webtyp.com/json v0.5.27 // indirect
 	webtyp.com/model v0.2.0 // indirect
 	webtyp.com/modfind v0.0.9 // indirect
