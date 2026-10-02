@@ -19,6 +19,7 @@ require (
 	golang.org/x/image v0.45.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
+	webtyp.com/artifacts v0.1.1 // indirect
 	webtyp.com/await v0.1.2 // indirect
 	webtyp.com/base64 v0.0.6 // indirect
 	webtyp.com/cloudflare v0.0.32 // indirect
@@ -27,7 +28,10 @@ require (
 	webtyp.com/css v0.4.22 // indirect
 	webtyp.com/dbus v0.1.1 // indirect
 	webtyp.com/ddl v0.0.15 // indirect
+	webtyp.com/device v0.1.0 // indirect
 	webtyp.com/dom v0.13.17 // indirect
+	webtyp.com/fetch v0.1.28 // indirect
+	webtyp.com/files v0.0.4 // indirect
 	webtyp.com/fmt v1.0.0 // indirect
 	webtyp.com/font v0.0.5 // indirect
 	webtyp.com/ghaction v0.1.2 // indirect
@@ -41,7 +45,7 @@ require (
 	webtyp.com/modfind v0.0.9 // indirect
 	webtyp.com/pwa v0.1.1 // indirect
 	webtyp.com/router v0.3.0 // indirect
-	webtyp.com/sitec v0.2.40 // indirect
+	webtyp.com/sitec v0.2.41 // indirect
 	webtyp.com/storage v0.1.0 // indirect
 	webtyp.com/svg v0.3.14 // indirect
 	webtyp.com/tinygo v1.0.1 // indirect
