@@ -44,7 +44,7 @@ require (
 	webtyp.com/model v0.2.0 // indirect
 	webtyp.com/modfind v0.0.9 // indirect
 	webtyp.com/pwa v0.1.1 // indirect
-	webtyp.com/router v0.3.0 // indirect
+	webtyp.com/router v0.3.2 // indirect
 	webtyp.com/sitec v0.2.42 // indirect
 	webtyp.com/storage v0.1.0 // indirect
 	webtyp.com/svg v0.3.14 // indirect
