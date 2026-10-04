@@ -29,7 +29,7 @@ require (
 	webtyp.com/dbus v0.1.1 // indirect
 	webtyp.com/ddl v0.0.15 // indirect
 	webtyp.com/device v0.1.0 // indirect
-	webtyp.com/dom v0.13.17 // indirect
+	webtyp.com/dom v0.13.18 // indirect
 	webtyp.com/fetch v0.1.28 // indirect
 	webtyp.com/files v0.0.4 // indirect
 	webtyp.com/fmt v1.0.0 // indirect
