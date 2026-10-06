@@ -43,7 +43,7 @@ require (
 	webtyp.com/image v0.1.16 // indirect
 	webtyp.com/js v0.1.1 // indirect
 	webtyp.com/json v0.5.29 // indirect
-	webtyp.com/lang v0.1.0 // indirect
+	webtyp.com/lang v0.1.1 // indirect
 	webtyp.com/model v0.2.2 // indirect
 	webtyp.com/modfind v0.0.10 // indirect
 	webtyp.com/pwa v0.1.1 // indirect
