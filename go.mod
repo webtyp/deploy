@@ -49,7 +49,7 @@ require (
 	webtyp.com/pwa v0.1.1 // indirect
 	webtyp.com/router v0.3.2 // indirect
 	webtyp.com/sitec v0.2.50 // indirect
-	webtyp.com/storage v0.1.0 // indirect
+	webtyp.com/storage v0.1.3 // indirect
 	webtyp.com/svg v0.3.14 // indirect
 	webtyp.com/tinygo v1.0.1 // indirect
 	webtyp.com/webauthn v0.1.3 // indirect
