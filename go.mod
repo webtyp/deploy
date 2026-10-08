@@ -22,7 +22,7 @@ require (
 	webtyp.com/artifacts v0.1.1 // indirect
 	webtyp.com/await v0.1.2 // indirect
 	webtyp.com/base64 v0.0.6 // indirect
-	webtyp.com/cloudflare v0.0.32 // indirect
+	webtyp.com/cloudflare v0.0.33 // indirect
 	webtyp.com/color v0.1.2 // indirect
 	webtyp.com/command v0.0.4 // indirect
 	webtyp.com/css v0.4.29 // indirect
