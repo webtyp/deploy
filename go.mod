@@ -7,7 +7,7 @@ require (
 	webtyp.com/context v0.0.23
 	webtyp.com/goflare v0.5.36
 	webtyp.com/keyring v0.2.4
-	webtyp.com/update v0.0.3
+	webtyp.com/update v0.0.4
 	webtyp.com/wizard v0.0.29
 )
 
