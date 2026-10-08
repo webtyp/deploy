@@ -5,7 +5,7 @@ go 1.26.8
 require (
 	gopkg.in/yaml.v3 v3.0.1
 	webtyp.com/context v0.0.23
-	webtyp.com/goflare v0.5.35
+	webtyp.com/goflare v0.5.36
 	webtyp.com/keyring v0.2.4
 	webtyp.com/update v0.0.3
 	webtyp.com/wizard v0.0.29
