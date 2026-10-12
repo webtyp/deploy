@@ -25,7 +25,7 @@ require (
 	webtyp.com/cloudflare v0.0.33 // indirect
 	webtyp.com/color v0.1.2 // indirect
 	webtyp.com/command v0.0.4 // indirect
-	webtyp.com/css v0.4.29 // indirect
+	webtyp.com/css v0.4.30 // indirect
 	webtyp.com/dbus v0.1.1 // indirect
 	webtyp.com/ddl v0.0.15 // indirect
 	webtyp.com/device v0.1.0 // indirect
