@@ -52,5 +52,5 @@ require (
 	webtyp.com/storage v0.1.4 // indirect
 	webtyp.com/svg v0.3.14 // indirect
 	webtyp.com/tinygo v1.0.1 // indirect
-	webtyp.com/webauthn v0.1.3 // indirect
+	webtyp.com/webauthn v0.1.5 // indirect
 )
