@@ -42,7 +42,7 @@ require (
 	webtyp.com/html v0.0.27 // indirect
 	webtyp.com/image v0.1.16 // indirect
 	webtyp.com/js v0.1.1 // indirect
-	webtyp.com/json v0.5.29 // indirect
+	webtyp.com/json v0.5.30 // indirect
 	webtyp.com/lang v0.1.6 // indirect
 	webtyp.com/model v0.2.3 // indirect
 	webtyp.com/modfind v0.0.11 // indirect
@@ -52,5 +52,5 @@ require (
 	webtyp.com/storage v0.1.4 // indirect
 	webtyp.com/svg v0.3.14 // indirect
 	webtyp.com/tinygo v1.0.1 // indirect
-	webtyp.com/webauthn v0.1.5 // indirect
+	webtyp.com/webauthn v0.1.6 // indirect
 )
