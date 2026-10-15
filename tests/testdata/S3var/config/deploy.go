@@ -2,13 +2,12 @@
 
 package config
 
-import (
-	"webtyp.com/deploy"
-)
+import "webtyp.com/deploy"
+
+const name = "bad"
 
 func Deploy() deploy.Plan {
 	return deploy.Plan{
-		Name:    "bad",
-		Unknown: "field",
+		Name: name,
 	}
 }

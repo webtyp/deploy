@@ -2,6 +2,7 @@ package tests
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -90,20 +91,32 @@ func TestScanS1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if p.Name != "misitio" || p.Domain != "misitio.velty.cl" || p.Target != "webtyp.com/goflare.Worker" || p.CI != "webtyp.com/github.Actions" {
-		t.Errorf("Unexpected plan fields: %+v", p)
+	want := deploy.Plan{
+		Name:      "misitio",
+		Domain:    "misitio.velty.cl",
+		Target:    "webtyp.com/goflare.Worker",
+		CI:        "webtyp.com/github.Actions",
+		Databases: []deploy.Database{{Binding: "DB", Name: "velty-misitio-db"}},
+		Buckets:   []deploy.Bucket{{Binding: "ASSETS", Name: "velty-misitio-assets"}},
+		Vars:      []deploy.Var{{Key: "IAM_BASE_URL", Value: "https://iam.velty.cl"}},
+		Secrets: []deploy.Secret{
+			{
+				Key:    "STRIPE_KEY",
+				What:   "Stripe API key",
+				Source: deploy.Typed,
+				Guide:  []lang.Text{"Open the Stripe dashboard", `Copy the "secret key"`},
+				To:     []deploy.Place{deploy.ToRuntime, deploy.ToLocal},
+			},
+			{
+				Key:    "SESSION_KEY",
+				What:   "Session signing key",
+				Source: deploy.Random,
+				To:     []deploy.Place{deploy.ToRuntime},
+			},
+		},
 	}
-	if len(p.Databases) != 1 || p.Databases[0].Binding != "DB" {
-		t.Error("Databases mismatch")
-	}
-	if len(p.Buckets) != 1 || p.Buckets[0].Binding != "ASSETS" {
-		t.Error("Buckets mismatch")
-	}
-	if len(p.Vars) != 1 || p.Vars[0].Key != "IAM_BASE_URL" {
-		t.Error("Vars mismatch")
-	}
-	if len(p.Secrets) != 1 || p.Secrets[0].Key != "STRIPE_KEY" {
-		t.Error("Secrets mismatch")
+	if !reflect.DeepEqual(p, want) {
+		t.Errorf("Scan S1\n got %+v\nwant %+v", p, want)
 	}
 }
 
@@ -115,9 +128,25 @@ func TestScanS2(t *testing.T) {
 }
 
 func TestScanS3(t *testing.T) {
-	_, err := deploy.Scan("testdata/S3")
-	if err == nil || !strings.Contains(err.Error(), "unknown field") {
-		t.Errorf("Expected unknown field error, got %v", err)
+	cases := []struct {
+		dir  string
+		err  error
+		line string
+	}{
+		{"S3call", deploy.ErrOnlyLiterals, "config/deploy.go:13:"},
+		{"S3var", deploy.ErrOnlyLiterals, "config/deploy.go:11:"},
+		{"S3field", deploy.ErrUnknownField, "config/deploy.go:10:"},
+	}
+	for _, c := range cases {
+		t.Run(c.dir, func(t *testing.T) {
+			_, err := deploy.Scan("testdata/" + c.dir)
+			if !errors.Is(err, c.err) {
+				t.Fatalf("Expected %v, got %v", c.err, err)
+			}
+			if !strings.Contains(err.Error(), c.line) {
+				t.Errorf("Expected %q in %q", c.line, err)
+			}
+		})
 	}
 }
 
@@ -157,6 +186,20 @@ func TestValidationErrors(t *testing.T) {
 			p.Vars = []deploy.Var{{Key: "A", Value: "1"}}
 			p.Secrets = []deploy.Secret{{Key: "A", What: "A", Source: deploy.Random, To: []deploy.Place{deploy.ToCI}}}
 		}, deploy.ErrDuplicateVar},
+		{"V13_NoWhat", func(p *deploy.Plan) {
+			p.Secrets = []deploy.Secret{{Key: "A", Source: deploy.Random, To: []deploy.Place{deploy.ToCI}}}
+		}, deploy.ErrNoWhat},
+		{"V14_NoGuide", func(p *deploy.Plan) {
+			p.Secrets = []deploy.Secret{{Key: "A", What: "A", Source: deploy.Typed, To: []deploy.Place{deploy.ToCI}}}
+		}, deploy.ErrNoGuide},
+		{"V15_InvalidPlace", func(p *deploy.Plan) {
+			p.Secrets = []deploy.Secret{{Key: "A", What: "A", Source: deploy.Random, To: []deploy.Place{0}}}
+		}, deploy.ErrInvalidPlace},
+		{"V16_EmptySecretKey", func(p *deploy.Plan) {
+			p.Secrets = []deploy.Secret{{What: "A", Source: deploy.Random, To: []deploy.Place{deploy.ToCI}}}
+		}, deploy.ErrDuplicateSecret},
+		{"V17_TargetMismatch", func(p *deploy.Plan) { p.Target = "other.Target" }, deploy.ErrTargetMismatch},
+		{"V18_CIMismatch", func(p *deploy.Plan) { p.CI = "other.CI" }, deploy.ErrCIMismatch},
 	}
 
 	for _, tt := range tests {
@@ -251,7 +294,7 @@ func TestRotate(t *testing.T) {
 	d := defaultDeps()
 	d.Plan.Secrets = []deploy.Secret{
 		{Key: "R1", What: "R1", Source: deploy.Random, To: []deploy.Place{deploy.ToRuntime}},
-		{Key: "T1", What: "T1", Source: deploy.Typed, Guide: []lang.Text{"G1"}, To: []deploy.Place{deploy.ToLocal}},
+		{Key: "T1", What: "T1", Source: deploy.Typed, Guide: []lang.Text{"G1"}, To: []deploy.Place{deploy.ToCI, deploy.ToLocal}},
 	}
 	d.Target.(*FakeTarget).runtime["R1"] = "old"
 
@@ -262,8 +305,14 @@ func TestRotate(t *testing.T) {
 	if d.Target.(*FakeTarget).runtime["R1"] == "old" {
 		t.Errorf("Rotate did not overwrite R1")
 	}
-	if len(m) != 1 || string(m[0].Item) != "T1" {
-		t.Errorf("Rotate did not return missing input for T1")
+	if len(m) != 2 || m[0].Fix != deploy.FixInput || m[0].Why == m[1].Why {
+		t.Fatalf("Rotate: expected one FixInput per place of T1, got %+v", m)
+	}
+	if err := m[1].Accept("new"); err != nil {
+		t.Fatal(err)
+	}
+	if d.Local.(FakeDest)["T1"] != "new" {
+		t.Errorf("Accept did not overwrite T1 at local")
 	}
 }
 

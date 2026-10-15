@@ -1,11 +1,16 @@
 package deploy
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"io/fs"
+	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"webtyp.com/lang"
@@ -14,379 +19,310 @@ import (
 // DefaultFile is where a project declares its deployment.
 const DefaultFile = "config/deploy.go"
 
+const (
+	buildTag   = "//go:build deploy"
+	deployPath = "webtyp.com/deploy"
+	deployFunc = "Deploy"
+)
+
 // Scan reads rootDir/DefaultFile and returns the Plan its Deploy function
 // returns. Only literals are allowed; anything else is an error naming the
 // file and line. A missing file is ErrNoPlan.
 func Scan(rootDir string) (Plan, error) {
 	path := filepath.Join(rootDir, DefaultFile)
-	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
-	if err != nil {
+	src, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
 		return Plan{}, ErrNoPlan
 	}
-
-	// Check build tag
-	hasTag := false
-	for _, cg := range f.Comments {
-		for _, c := range cg.List {
-			if strings.TrimSpace(c.Text) == "//go:build deploy" {
-				hasTag = true
-				break
-			}
-		}
-		if hasTag {
-			break
-		}
-	}
-	if !hasTag {
-		return Plan{}, ErrMissingBuildTag
-	}
-
-	var plan Plan
-	var scanErr error
-
-	ast.Inspect(f, func(n ast.Node) bool {
-		if scanErr != nil {
-			return false
-		}
-
-		funcDecl, ok := n.(*ast.FuncDecl)
-		if !ok || funcDecl.Name.Name != "Deploy" {
-			return true
-		}
-
-		if len(funcDecl.Body.List) != 1 {
-			scanErr = fmt.Errorf("%s:%d: %w", path, fset.Position(funcDecl.Pos()).Line, ErrOnlyLiterals)
-			return false
-		}
-		retStmt, ok := funcDecl.Body.List[0].(*ast.ReturnStmt)
-		if !ok || len(retStmt.Results) != 1 {
-			scanErr = fmt.Errorf("%s:%d: %w", path, fset.Position(funcDecl.Pos()).Line, ErrOnlyLiterals)
-			return false
-		}
-		compLit, ok := retStmt.Results[0].(*ast.CompositeLit)
-		if !ok {
-			scanErr = fmt.Errorf("%s:%d: %w", path, fset.Position(retStmt.Results[0].Pos()).Line, ErrOnlyLiterals)
-			return false
-		}
-
-		plan, scanErr = parsePlanLit(fset, path, f.Imports, compLit)
-		return false
-	})
-
-	if scanErr != nil {
-		return Plan{}, scanErr
-	}
-	if err := validate(plan); err != nil {
+	if err != nil {
 		return Plan{}, err
 	}
-	return plan, nil
+	first, _, _ := bytes.Cut(src, []byte("\n"))
+	if strings.TrimRight(string(first), "\r") != buildTag {
+		return Plan{}, fmt.Errorf("%s:1: %w", path, ErrMissingBuildTag)
+	}
+
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, path, src, 0)
+	if err != nil {
+		return Plan{}, err
+	}
+	s := scanner{fset: fset, path: path, imports: importNames(f)}
+
+	for _, decl := range f.Decls {
+		fn, ok := decl.(*ast.FuncDecl)
+		if !ok || fn.Recv != nil || fn.Name.Name != deployFunc {
+			continue
+		}
+		plan, err := s.deploy(fn)
+		if err != nil {
+			return Plan{}, err
+		}
+		if err := validate(plan); err != nil {
+			return Plan{}, fmt.Errorf("%s: %w", path, err)
+		}
+		return plan, nil
+	}
+	return Plan{}, fmt.Errorf("%s: %w", path, ErrNoPlan)
 }
 
-func parsePlanLit(fset *token.FileSet, path string, imports []*ast.ImportSpec, lit *ast.CompositeLit) (Plan, error) {
+// importNames maps each name the file uses for an import to its path.
+func importNames(f *ast.File) map[string]string {
+	names := make(map[string]string, len(f.Imports))
+	for _, imp := range f.Imports {
+		path, err := strconv.Unquote(imp.Path.Value)
+		if err != nil {
+			continue
+		}
+		name := path[strings.LastIndex(path, "/")+1:]
+		if imp.Name != nil {
+			name = imp.Name.Name
+		}
+		names[name] = path
+	}
+	return names
+}
+
+// scanner reads the literal of one declaration file.
+type scanner struct {
+	fset    *token.FileSet
+	path    string
+	imports map[string]string
+}
+
+// fail is "<path>:<line>: <reason>".
+func (s scanner) fail(n ast.Node, reason error) error {
+	return fmt.Errorf("%s:%d: %w", s.path, s.fset.Position(n.Pos()).Line, reason)
+}
+
+func (s scanner) deploy(fn *ast.FuncDecl) (Plan, error) {
+	if fn.Body == nil || len(fn.Body.List) != 1 {
+		return Plan{}, s.fail(fn, ErrOnlyLiterals)
+	}
+	ret, ok := fn.Body.List[0].(*ast.ReturnStmt)
+	if !ok || len(ret.Results) != 1 {
+		return Plan{}, s.fail(fn.Body.List[0], ErrOnlyLiterals)
+	}
 	var p Plan
+	err := s.fields(ret.Results[0], func(name string, v ast.Expr) error {
+		var err error
+		switch name {
+		case "Name":
+			p.Name, err = s.str(v)
+		case "Domain":
+			p.Domain, err = s.str(v)
+		case "Target":
+			var id string
+			id, err = s.ref(v)
+			p.Target = TargetID(id)
+		case "CI":
+			var id string
+			id, err = s.ref(v)
+			p.CI = CIID(id)
+		case "Databases":
+			err = s.list(v, func(e ast.Expr) error {
+				var db Database
+				err := s.binding(e, &db.Binding, &db.Name)
+				p.Databases = append(p.Databases, db)
+				return err
+			})
+		case "Buckets":
+			err = s.list(v, func(e ast.Expr) error {
+				var b Bucket
+				err := s.binding(e, &b.Binding, &b.Name)
+				p.Buckets = append(p.Buckets, b)
+				return err
+			})
+		case "Vars":
+			err = s.list(v, func(e ast.Expr) error {
+				var vr Var
+				err := s.fields(e, func(name string, v ast.Expr) error {
+					var err error
+					switch name {
+					case "Key":
+						vr.Key, err = s.str(v)
+					case "Value":
+						vr.Value, err = s.str(v)
+					default:
+						return ErrUnknownField
+					}
+					return err
+				})
+				p.Vars = append(p.Vars, vr)
+				return err
+			})
+		case "Secrets":
+			err = s.list(v, func(e ast.Expr) error {
+				sec, err := s.secret(e)
+				p.Secrets = append(p.Secrets, sec)
+				return err
+			})
+		default:
+			return ErrUnknownField
+		}
+		return err
+	})
+	return p, err
+}
+
+// binding reads a Database or Bucket literal.
+func (s scanner) binding(e ast.Expr, binding, name *string) error {
+	return s.fields(e, func(field string, v ast.Expr) error {
+		var err error
+		switch field {
+		case "Binding":
+			*binding, err = s.str(v)
+		case "Name":
+			*name, err = s.str(v)
+		default:
+			return ErrUnknownField
+		}
+		return err
+	})
+}
+
+func (s scanner) secret(e ast.Expr) (Secret, error) {
+	var sec Secret
+	err := s.fields(e, func(name string, v ast.Expr) error {
+		switch name {
+		case "Key":
+			var err error
+			sec.Key, err = s.str(v)
+			return err
+		case "What":
+			what, err := s.str(v)
+			sec.What = lang.Text(what)
+			return err
+		case "Source":
+			c, err := s.deployConst(v)
+			switch c {
+			case "Typed":
+				sec.Source = Typed
+			case "Random":
+				sec.Source = Random
+			default:
+				if err == nil {
+					err = s.fail(v, ErrInvalidSource)
+				}
+			}
+			return err
+		case "Guide":
+			return s.list(v, func(e ast.Expr) error {
+				step, err := s.str(e)
+				sec.Guide = append(sec.Guide, lang.Text(step))
+				return err
+			})
+		case "To":
+			return s.list(v, func(e ast.Expr) error {
+				c, err := s.deployConst(e)
+				switch c {
+				case "ToRuntime":
+					sec.To = append(sec.To, ToRuntime)
+				case "ToCI":
+					sec.To = append(sec.To, ToCI)
+				case "ToLocal":
+					sec.To = append(sec.To, ToLocal)
+				default:
+					if err == nil {
+						err = s.fail(e, ErrInvalidPlace)
+					}
+				}
+				return err
+			})
+		default:
+			return ErrUnknownField
+		}
+	})
+	return sec, err
+}
+
+// fields walks a keyed composite literal. A field error that is a bare
+// reason (not yet positioned) is positioned at the key.
+func (s scanner) fields(e ast.Expr, each func(name string, v ast.Expr) error) error {
+	lit, ok := e.(*ast.CompositeLit)
+	if !ok {
+		return s.fail(e, ErrOnlyLiterals)
+	}
 	for _, elt := range lit.Elts {
 		kv, ok := elt.(*ast.KeyValueExpr)
 		if !ok {
-			return p, fmt.Errorf("%s:%d: %w", path, fset.Position(elt.Pos()).Line, ErrOnlyLiterals)
+			return s.fail(elt, ErrOnlyLiterals)
 		}
-		ident, ok := kv.Key.(*ast.Ident)
+		key, ok := kv.Key.(*ast.Ident)
 		if !ok {
-			return p, fmt.Errorf("%s:%d: %w", path, fset.Position(kv.Key.Pos()).Line, ErrOnlyLiterals)
+			return s.fail(kv.Key, ErrOnlyLiterals)
 		}
-		switch ident.Name {
-		case "Name":
-			p.Name = extractString(kv.Value)
-		case "Domain":
-			p.Domain = extractString(kv.Value)
-		case "Target":
-			val, err := extractSelector(fset, path, imports, kv.Value)
-			if err != nil {
-				return p, err
+		if err := each(key.Name, kv.Value); err != nil {
+			if err == ErrUnknownField {
+				return s.fail(key, fmt.Errorf("%s: %w", key.Name, err))
 			}
-			p.Target = TargetID(val)
-		case "CI":
-			val, err := extractSelector(fset, path, imports, kv.Value)
-			if err != nil {
-				return p, err
-			}
-			p.CI = CIID(val)
-		case "Databases":
-			dbs, err := parseDatabases(fset, path, kv.Value)
-			if err != nil {
-				return p, err
-			}
-			p.Databases = dbs
-		case "Buckets":
-			buckets, err := parseBuckets(fset, path, kv.Value)
-			if err != nil {
-				return p, err
-			}
-			p.Buckets = buckets
-		case "Vars":
-			vars, err := parseVars(fset, path, kv.Value)
-			if err != nil {
-				return p, err
-			}
-			p.Vars = vars
-		case "Secrets":
-			secrets, err := parseSecrets(fset, path, kv.Value)
-			if err != nil {
-				return p, err
-			}
-			p.Secrets = secrets
-		default:
-			return p, fmt.Errorf("%s:%d: %w", path, fset.Position(ident.Pos()).Line, ErrUnknownField)
+			return err
 		}
 	}
-	return p, nil
+	return nil
 }
 
-func parseDatabases(fset *token.FileSet, path string, expr ast.Expr) ([]Database, error) {
-	lit, ok := expr.(*ast.CompositeLit)
+// list walks the elements of a slice composite literal.
+func (s scanner) list(e ast.Expr, each func(ast.Expr) error) error {
+	lit, ok := e.(*ast.CompositeLit)
 	if !ok {
-		return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(expr.Pos()).Line, ErrOnlyLiterals)
+		return s.fail(e, ErrOnlyLiterals)
 	}
-	var dbs []Database
 	for _, elt := range lit.Elts {
-		clit, ok := elt.(*ast.CompositeLit)
-		if !ok {
-			return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(elt.Pos()).Line, ErrOnlyLiterals)
+		if err := each(elt); err != nil {
+			return err
 		}
-		var db Database
-		for _, kvelt := range clit.Elts {
-			kv, ok := kvelt.(*ast.KeyValueExpr)
-			if !ok {
-				continue
-			}
-			ident, ok := kv.Key.(*ast.Ident)
-			if !ok {
-				continue
-			}
-			if ident.Name == "Binding" {
-				db.Binding = extractString(kv.Value)
-			} else if ident.Name == "Name" {
-				db.Name = extractString(kv.Value)
-			} else {
-				return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(ident.Pos()).Line, ErrUnknownField)
-			}
-		}
-		dbs = append(dbs, db)
 	}
-	return dbs, nil
+	return nil
 }
 
-func parseBuckets(fset *token.FileSet, path string, expr ast.Expr) ([]Bucket, error) {
-	lit, ok := expr.(*ast.CompositeLit)
+// str reads a string literal ("..." or raw).
+func (s scanner) str(e ast.Expr) (string, error) {
+	lit, ok := e.(*ast.BasicLit)
+	if !ok || lit.Kind != token.STRING {
+		return "", s.fail(e, ErrOnlyLiterals)
+	}
+	v, err := strconv.Unquote(lit.Value)
+	if err != nil {
+		return "", s.fail(e, ErrOnlyLiterals)
+	}
+	return v, nil
+}
+
+// selector splits pkg.Name, resolving pkg through the file's imports.
+func (s scanner) selector(e ast.Expr) (path, name string, err error) {
+	sel, ok := e.(*ast.SelectorExpr)
 	if !ok {
-		return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(expr.Pos()).Line, ErrOnlyLiterals)
+		return "", "", s.fail(e, ErrOnlyLiterals)
 	}
-	var buckets []Bucket
-	for _, elt := range lit.Elts {
-		clit, ok := elt.(*ast.CompositeLit)
-		if !ok {
-			return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(elt.Pos()).Line, ErrOnlyLiterals)
-		}
-		var b Bucket
-		for _, kvelt := range clit.Elts {
-			kv, ok := kvelt.(*ast.KeyValueExpr)
-			if !ok {
-				continue
-			}
-			ident, ok := kv.Key.(*ast.Ident)
-			if !ok {
-				continue
-			}
-			if ident.Name == "Binding" {
-				b.Binding = extractString(kv.Value)
-			} else if ident.Name == "Name" {
-				b.Name = extractString(kv.Value)
-			} else {
-				return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(ident.Pos()).Line, ErrUnknownField)
-			}
-		}
-		buckets = append(buckets, b)
-	}
-	return buckets, nil
-}
-
-func parseVars(fset *token.FileSet, path string, expr ast.Expr) ([]Var, error) {
-	lit, ok := expr.(*ast.CompositeLit)
+	pkg, ok := sel.X.(*ast.Ident)
 	if !ok {
-		return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(expr.Pos()).Line, ErrOnlyLiterals)
+		return "", "", s.fail(e, ErrOnlyLiterals)
 	}
-	var vars []Var
-	for _, elt := range lit.Elts {
-		clit, ok := elt.(*ast.CompositeLit)
-		if !ok {
-			return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(elt.Pos()).Line, ErrOnlyLiterals)
-		}
-		var v Var
-		for _, kvelt := range clit.Elts {
-			kv, ok := kvelt.(*ast.KeyValueExpr)
-			if !ok {
-				continue
-			}
-			ident, ok := kv.Key.(*ast.Ident)
-			if !ok {
-				continue
-			}
-			if ident.Name == "Key" {
-				v.Key = extractString(kv.Value)
-			} else if ident.Name == "Value" {
-				v.Value = extractString(kv.Value)
-			} else {
-				return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(ident.Pos()).Line, ErrUnknownField)
-			}
-		}
-		vars = append(vars, v)
-	}
-	return vars, nil
-}
-
-func parseSecrets(fset *token.FileSet, path string, expr ast.Expr) ([]Secret, error) {
-	lit, ok := expr.(*ast.CompositeLit)
+	path, ok = s.imports[pkg.Name]
 	if !ok {
-		return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(expr.Pos()).Line, ErrOnlyLiterals)
+		return "", "", s.fail(e, fmt.Errorf("%s: %w", pkg.Name, ErrUnknownImport))
 	}
-	var secrets []Secret
-	for _, elt := range lit.Elts {
-		clit, ok := elt.(*ast.CompositeLit)
-		if !ok {
-			return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(elt.Pos()).Line, ErrOnlyLiterals)
-		}
-		var s Secret
-		for _, kvelt := range clit.Elts {
-			kv, ok := kvelt.(*ast.KeyValueExpr)
-			if !ok {
-				continue
-			}
-			ident, ok := kv.Key.(*ast.Ident)
-			if !ok {
-				continue
-			}
-			if ident.Name == "Key" {
-				s.Key = extractString(kv.Value)
-			} else if ident.Name == "What" {
-				s.What = lang.Text(extractText(kv.Value))
-			} else if ident.Name == "Source" {
-				sel, ok := kv.Value.(*ast.SelectorExpr)
-				if !ok {
-					// could be an ident directly if they use import .
-					id, ok := kv.Value.(*ast.Ident)
-					if ok && id.Name == "Typed" {
-						s.Source = Typed
-					} else if ok && id.Name == "Random" {
-						s.Source = Random
-					} else {
-						return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(kv.Value.Pos()).Line, ErrOnlyLiterals)
-					}
-				} else {
-					if sel.Sel.Name == "Typed" {
-						s.Source = Typed
-					} else if sel.Sel.Name == "Random" {
-						s.Source = Random
-					} else {
-						return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(sel.Pos()).Line, ErrOnlyLiterals)
-					}
-				}
-			} else if ident.Name == "Guide" {
-				gLit, ok := kv.Value.(*ast.CompositeLit)
-				if !ok {
-					return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(kv.Value.Pos()).Line, ErrOnlyLiterals)
-				}
-				for _, gelt := range gLit.Elts {
-					s.Guide = append(s.Guide, lang.Text(extractText(gelt)))
-				}
-			} else if ident.Name == "To" {
-				tLit, ok := kv.Value.(*ast.CompositeLit)
-				if !ok {
-					return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(kv.Value.Pos()).Line, ErrOnlyLiterals)
-				}
-				for _, telt := range tLit.Elts {
-					sel, ok := telt.(*ast.SelectorExpr)
-					name := ""
-					if ok {
-						name = sel.Sel.Name
-					} else if id, ok := telt.(*ast.Ident); ok {
-						name = id.Name
-					} else {
-						return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(telt.Pos()).Line, ErrOnlyLiterals)
-					}
-
-					if name == "ToRuntime" {
-						s.To = append(s.To, ToRuntime)
-					} else if name == "ToCI" {
-						s.To = append(s.To, ToCI)
-					} else if name == "ToLocal" {
-						s.To = append(s.To, ToLocal)
-					} else {
-						return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(telt.Pos()).Line, ErrOnlyLiterals)
-					}
-				}
-			} else {
-				return nil, fmt.Errorf("%s:%d: %w", path, fset.Position(ident.Pos()).Line, ErrUnknownField)
-			}
-		}
-		secrets = append(secrets, s)
-	}
-	return secrets, nil
+	return path, sel.Sel.Name, nil
 }
 
-func extractString(expr ast.Expr) string {
-	lit, ok := expr.(*ast.BasicLit)
-	if ok && lit.Kind == token.STRING {
-		// strip quotes
-		if len(lit.Value) >= 2 {
-			if lit.Value[0] == '"' || lit.Value[0] == '`' {
-				return lit.Value[1 : len(lit.Value)-1]
-			}
-		}
-		return lit.Value
+// ref reads a Target or CI constant as "<import path>.<constant>".
+func (s scanner) ref(e ast.Expr) (string, error) {
+	path, name, err := s.selector(e)
+	if err != nil {
+		return "", err
 	}
-	return ""
+	return path + "." + name, nil
 }
 
-func extractText(expr ast.Expr) string {
-	// since lang.Text is a string type, it's just a string or typed string literal
-	if call, ok := expr.(*ast.CallExpr); ok {
-		if len(call.Args) == 1 {
-			return extractString(call.Args[0])
-		}
+// deployConst reads a selector on the webtyp.com/deploy import.
+func (s scanner) deployConst(e ast.Expr) (string, error) {
+	path, name, err := s.selector(e)
+	if err != nil {
+		return "", err
 	}
-	return extractString(expr)
-}
-
-func extractSelector(fset *token.FileSet, path string, imports []*ast.ImportSpec, expr ast.Expr) (string, error) {
-	sel, ok := expr.(*ast.SelectorExpr)
-	if !ok {
-		return "", fmt.Errorf("%s:%d: %w", path, fset.Position(expr.Pos()).Line, ErrOnlyLiterals)
+	if path != deployPath {
+		return "", s.fail(e, fmt.Errorf("%s: %w", path, ErrUnknownImport))
 	}
-	pkgIdent, ok := sel.X.(*ast.Ident)
-	if !ok {
-		return "", fmt.Errorf("%s:%d: %w", path, fset.Position(sel.X.Pos()).Line, ErrOnlyLiterals)
-	}
-	pkgName := pkgIdent.Name
-	constName := sel.Sel.Name
-
-	importPath := ""
-	for _, imp := range imports {
-		v := extractString(imp.Path)
-		if imp.Name != nil {
-			if imp.Name.Name == pkgName {
-				importPath = v
-				break
-			}
-		} else {
-			parts := strings.Split(v, "/")
-			if len(parts) > 0 && parts[len(parts)-1] == pkgName {
-				importPath = v
-				break
-			}
-		}
-	}
-	if importPath == "" {
-		importPath = pkgName
-	}
-	return importPath + "." + constName, nil
+	return name, nil
 }

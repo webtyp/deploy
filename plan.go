@@ -60,8 +60,8 @@ const (
 
 // Secret is a value the project needs that grants access.
 type Secret struct {
-	Key    string      // e.g. "IAM_CLIENT_PRIVATE_KEY"
-	What   lang.Text   // what it is, in one plain sentence (English; translated)
+	Key    string    // e.g. "IAM_CLIENT_PRIVATE_KEY"
+	What   lang.Text // what it is, in one plain sentence (English; translated)
 	Source Source
 	Guide  []lang.Text // for Typed: the steps to obtain it, shown one per line
 	To     []Place

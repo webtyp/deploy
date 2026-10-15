@@ -13,7 +13,7 @@ type Input struct{ Name, Value string }
 // Job is the single CI step a Target needs to deploy: an action reference,
 // its inputs, and the names of the CI secrets it reads as environment variables.
 type Job struct {
-	Uses    string   // e.g. "tinywasm/goflare@v1"
+	Uses    string // e.g. "tinywasm/goflare@v1"
 	With    []Input
 	Secrets []string // e.g. "CLOUDFLARE_API_TOKEN"
 }

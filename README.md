@@ -47,10 +47,11 @@ func Deploy() deploy.Plan {
 The `Deployment` struct exposes the following orchestration methods:
 
 - **`Check`**: Validates the plan and queries the `CI`, `Target`, and all specified places (Runtime, CI, Local) for missing secrets. Returns a list of `Missing` items.
-- **`LocalMissing`**: A scoped check that verifies what secrets are missing from the local development server (Local Keyring).
 - **`Provision`**: Automatically creates any missing `Random` secrets and delivers them to their required destinations. Asks `Target` and `CI` to provision themselves.
 - **`Rotate`**: Regenerates and overwrites all `Random` secrets across all destinations, and returns a list of `FixInput` missing items for any `Typed` secrets.
 - **`Release`**: Verifies the deployment is ready via `Check`, and triggers the CI deploy job.
 - **`Status`**: Returns the current status of the CI deployment run.
+
+`deploy.LocalMissing(plan, local)` is a function, not a method: it returns only the `ToLocal` items of `Check` and never calls a `Target` or `CI`, so the local development server can wait for its secrets without reaching any provider.
 
 **Important**: Tool implementations MUST import `deploy`; this package will never import an implementation.
