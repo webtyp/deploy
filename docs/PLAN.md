@@ -2,8 +2,10 @@
 PLAN: "feat!: deploy is contracts only — Plan, Scan, Deployment, Target, CI, Destination; delete the puller and every built-in method"
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 7552631315228362006
+PR: https://github.com/webtyp/deploy/pull/7
+REVIEWED_COMMIT: 0ba9fb6f95ddf2103a8ca58d7ca7c565b0d86c6e
 ---
 
 > Read AGENTS.md at the repo root before any change.

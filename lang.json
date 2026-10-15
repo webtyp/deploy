@@ -1,0 +1,8 @@
+{
+  "languages": ["es", "zh", "hi", "ar", "pt", "fr", "de", "ru"],
+  "keys": {
+    "The CI cannot deploy without it": ["La integración continua no puede desplegar sin él", "", "", "", "", "", "", ""],
+    "The deployed app cannot start without it": ["La aplicación desplegada no puede iniciar sin él", "", "", "", "", "", "", ""],
+    "The local development server needs it": ["El servidor local de desarrollo lo necesita", "", "", "", "", "", "", ""]
+  }
+}
