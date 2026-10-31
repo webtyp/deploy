@@ -3,8 +3,10 @@ PLAN: "feat: deploy.Write serializes Plan into config/deploy.go"
 TAG: v0.2.115
 EXECUTOR: jules
 REVIEWER: none
-STATUS: running
+STATUS: review
 SESSION: 7544838604499152860
+PR: https://github.com/webtyp/deploy/pull/8
+REVIEWED_COMMIT: 4fcf865eb114de96dc04b935925b0796d1a4f580
 ---
 
 > Read AGENTS.md at the repo root before any change.
