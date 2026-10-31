@@ -1,57 +1,61 @@
 # deploy
 <img src="docs/img/badges.svg">
 
-`webtyp.com/deploy` is the deployment contract shared by all webtyp applications and providers. It declares what a project needs and orchestrates how a CI and a target work together to fulfill those needs. It contains only types, interfaces, the reader of a project's declaration, and the generic orchestration over those interfaces.
+`webtyp.com/deploy` is the deployment contract shared by all webtyp applications and providers. It declares what a project needs and orchestrates how a CI and a target work together to fulfill those needs. It contains only types, interfaces, the reader and writer of a project's declaration, and the generic orchestration over those interfaces.
 
 It does not contain any provider implementations (like Cloudflare or GitHub). Implementations import `deploy`, and `webtyp.com/app` composes them.
 
-## Types and Contracts
+## Why This Exists
 
-- **`Plan`**: The deployment specification.
-- **`Deployment`**: A `Plan` combined with the tools (`Target`, `CI`, `Local` destination) that carry it out.
-- **`Target`**: Where the project runs (e.g., a Cloudflare Worker).
-- **`CI`**: The platform that runs the deployment (e.g., GitHub Actions).
-- **`Destination`**: An interface representing places that receive secrets (Runtime, CI, Local keyring).
-- **`Missing`**: Items (secrets or configuration) that are required but absent.
+This package centralizes the definition of a deployment (`Plan`) and the lifecycle to enforce it (`Deployment`).
+It provides `deploy.Scan` to read a project's `config/deploy.go` into a `Plan`, and `deploy.Write` to serialize a `Plan` back into `config/deploy.go`. This enables both manual editing by users and automated scaffolding by tools like `webtyp/app`.
 
-## Example Configuration
+## Before You Start
 
-Projects declare their deployment by placing a `config/deploy.go` file with the following exact format:
+- You must import `webtyp.com/deploy` and provider implementations in your `config/deploy.go`.
+- Tool implementations must import this package, but this package never imports them.
+
+## Step-by-Step Guide
+
+Here is a complete example of generating and scanning a deployment plan:
 
 ```go
-//go:build deploy
-
-package config
+package main
 
 import (
 	"webtyp.com/deploy"
-	"webtyp.com/github"
-	"webtyp.com/goflare"
+	"webtyp.com/fmt"
 )
 
-func Deploy() deploy.Plan {
-	return deploy.Plan{
-		Name:      "misitio",
-		Domain:    "misitio.velty.cl",
-		Target:    goflare.Worker,
-		CI:        github.Actions,
-		Databases: []deploy.Database{{Binding: "DB", Name: "velty-misitio-db"}},
-		Buckets:   []deploy.Bucket{{Binding: "ASSETS", Name: "velty-misitio-assets"}},
-		Vars:      []deploy.Var{{Key: "IAM_BASE_URL", Value: "https://iam.velty.cl"}},
+func main() {
+	plan := deploy.Plan{
+		Name:   "example-app",
+		Target: "webtyp.com/goflare.Worker",
+		CI:     "webtyp.com/github.Actions",
 	}
+
+	// 1. Write the plan to config/deploy.go
+	if err := deploy.Write(".", plan); err != nil {
+		fmt.Println("failed to write plan:", err)
+		return
+	}
+
+	// 2. Scan the written file back into a Plan
+	scanned, err := deploy.Scan(".")
+	if err != nil {
+		fmt.Println("failed to scan plan:", err)
+		return
+	}
+
+	fmt.Printf("Scanned Plan: %+v\n", scanned)
 }
 ```
 
-## Orchestration Methods
+## Documentation Map
 
-The `Deployment` struct exposes the following orchestration methods:
-
-- **`Check`**: Validates the plan and queries the `CI`, `Target`, and all specified places (Runtime, CI, Local) for missing secrets. Returns a list of `Missing` items.
-- **`Provision`**: Automatically creates any missing `Random` secrets and delivers them to their required destinations. Asks `Target` and `CI` to provision themselves.
-- **`Rotate`**: Regenerates and overwrites all `Random` secrets across all destinations, and returns a list of `FixInput` missing items for any `Typed` secrets.
-- **`Release`**: Verifies the deployment is ready via `Check`, and triggers the CI deploy job.
-- **`Status`**: Returns the current status of the CI deployment run.
-
-`deploy.LocalMissing(plan, local)` is a function, not a method: it returns only the `ToLocal` items of `Check` and never calls a `Target` or `CI`, so the local development server can wait for its secrets without reaching any provider.
-
-**Important**: Tool implementations MUST import `deploy`; this package will never import an implementation.
+- **`Plan`**: The deployment specification.
+- **`Deployment`**: A `Plan` combined with the tools (`Target`, `CI`, `Local` destination) that carry it out.
+- **`Target`**: Where the project runs.
+- **`CI`**: The platform that runs the deployment.
+- **`Destination`**: An interface representing places that receive secrets.
+- **`Missing`**: Items (secrets or configuration) that are required but absent.
