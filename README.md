@@ -23,10 +23,8 @@ Here is a complete example of generating and scanning a deployment plan:
 package main
 
 import (
-	"fmt"
-	"log"
-
 	"webtyp.com/deploy"
+	"webtyp.com/fmt"
 )
 
 func main() {
@@ -38,13 +36,15 @@ func main() {
 
 	// 1. Write the plan to config/deploy.go
 	if err := deploy.Write(".", plan); err != nil {
-		log.Fatalf("failed to write plan: %v", err)
+		fmt.Println("failed to write plan:", err)
+		return
 	}
 
 	// 2. Scan the written file back into a Plan
 	scanned, err := deploy.Scan(".")
 	if err != nil {
-		log.Fatalf("failed to scan plan: %v", err)
+		fmt.Println("failed to scan plan:", err)
+		return
 	}
 
 	fmt.Printf("Scanned Plan: %+v\n", scanned)
